@@ -1,0 +1,68 @@
+package model;
+
+import world.WorldView;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+
+public final class Wolf extends Animal {
+    public static final int MAX_AGE = 40;
+
+    public static final int INITIAL_ENERGY = 15;
+    public static final int ENERGY_COST_PER_STEP = 1;
+    public static final int ENERGY_GAIN_FROM_SHEEP = 10;
+
+    // Cenário 2
+    public static final int MIN_REPRO_AGE = 5;
+    public static final int MIN_REPRO_ENERGY = 20;
+    public static final double REPRO_PROBABILITY = 0.25; // ajusta se precisares
+
+    public Wolf(Position pos) {
+        super(pos, MAX_AGE, INITIAL_ENERGY, ENERGY_COST_PER_STEP);
+    }
+
+    @Override
+    public Species getSpecies() {
+        return Species.WOLF;
+    }
+
+    @Override
+    protected boolean canEnterCell(Organism occupant) {
+        if (occupant == null) return true;
+        if (occupant.getSpecies() == Species.WOLF) return false;
+        return true;
+    }
+
+    @Override
+    public Position chooseMoveTarget(WorldView world, Random rng) {
+        List<Position> candidates = new ArrayList<>(world.getAdjacent4(getPosition()));
+        Collections.shuffle(candidates, rng);
+
+        for (Position p : candidates) {
+            Organism occ = world.getAt(p);
+            if (canEnterCell(occ)) return p;
+        }
+        return getPosition();
+    }
+
+    public void eatSheep() {
+        addEnergy(ENERGY_GAIN_FROM_SHEEP);
+    }
+
+    @Override
+    public boolean isAdultForReproduction() {
+        return getAge() >= MIN_REPRO_AGE && getEnergy() >= MIN_REPRO_ENERGY;
+    }
+
+    @Override
+    public double reproductionProbability() {
+        return REPRO_PROBABILITY;
+    }
+
+    @Override
+    public Organism createOffspring(Position pos) {
+        return new Wolf(pos);
+    }
+}
