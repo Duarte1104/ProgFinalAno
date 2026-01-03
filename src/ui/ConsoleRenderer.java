@@ -1,13 +1,13 @@
 package ui;
 
-import model.Species;
-import world.World;
-
 import java.util.List;
+import model.Species;
+import sim.SimulationStats;
+import world.World;
 
 public final class ConsoleRenderer {
 
-    public void render(World world, int stepNumber) {
+    public void render(World world, int stepNumber, SimulationStats stats) {
         System.out.println();
         System.out.println("Passo " + stepNumber);
 
@@ -20,7 +20,18 @@ public final class ConsoleRenderer {
         int sheep  = world.countSpecies(Species.SHEEP);
         int wolves = world.countSpecies(Species.WOLF);
 
-        System.out.println("Plantas(*): " + plants + " | Ovelhas(O): " + sheep + " | Lobos(W): " + wolves);
+        System.out.println("Vivos  -> Plantas(*): " + plants + " | Ovelhas(O): " + sheep + " | Lobos(W): " + wolves);
+
+        if (stats != null) {
+            System.out.println("Criados-> Plantas(*): " + stats.getCreatedPlants()
+                    + " | Ovelhas(O): " + stats.getCreatedSheep()
+                    + " | Lobos(W): " + stats.getCreatedWolves());
+
+            System.out.println("Mortos -> Plantas(*): " + stats.getDiedPlants()
+                    + " | Ovelhas(O): " + stats.getDiedSheep()
+                    + " | Lobos(W): " + stats.getDiedWolves());
+        }
+
         System.out.println();
     }
 
