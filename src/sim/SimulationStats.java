@@ -3,42 +3,89 @@ package sim;
 import model.Species;
 import world.World;
 
-/** Estatísticas simples: criados e mortos por espécie. */
+/** Estatísticas com detalhe de eventos (nascimentos, predação, mortes naturais). */
 public final class SimulationStats {
 
-    private long createdPlants, createdSheep, createdWolves;
-    private long diedPlants, diedSheep, diedWolves;
+    // Iniciais
+    private final long initialPlants;
+    private final long initialSheep;
+    private final long initialWolves;
 
-    /** Inicializa "criados" com os organismos iniciais já presentes no mundo. */
+    // Nascimentos por reprodução
+    private long bornPlants;
+    private long bornSheep;
+    private long bornWolves;
+
+    // Interações
+    private long plantsEatenBySheep;
+    private long sheepEatenByWolves;
+    private long plantsRemovedByWolves; // se o lobo entra numa planta e a planta desaparece
+
+    // Mortes naturais
+    private long plantsDiedOldAge;
+    private long sheepDiedOldAge;
+    private long sheepDiedStarvation;
+    private long wolvesDiedOldAge;
+    private long wolvesDiedStarvation;
+
     public SimulationStats(World world) {
-        this.createdPlants = world.countSpecies(Species.PLANT);
-        this.createdSheep  = world.countSpecies(Species.SHEEP);
-        this.createdWolves = world.countSpecies(Species.WOLF);
+        this.initialPlants = world.countSpecies(Species.PLANT);
+        this.initialSheep  = world.countSpecies(Species.SHEEP);
+        this.initialWolves = world.countSpecies(Species.WOLF);
     }
 
-    public void onCreated(Species s, long n) {
-        if (n <= 0) return;
-        switch (s) {
-            case PLANT -> createdPlants += n;
-            case SHEEP -> createdSheep += n;
-            case WOLF  -> createdWolves += n;
-        }
+    // ---------- eventos "nascimentos" ----------
+    public void onPlantBorn() { bornPlants++; }
+    public void onSheepBorn() { bornSheep++; }
+    public void onWolfBorn()  { bornWolves++; }
+
+    // ---------- eventos de interação ----------
+    public void onPlantEatenBySheep() { plantsEatenBySheep++; }
+    public void onSheepEatenByWolf()  { sheepEatenByWolves++; }
+    public void onPlantRemovedByWolf() { plantsRemovedByWolves++; }
+
+    // ---------- mortes naturais ----------
+    public void onPlantDiedOldAge() { plantsDiedOldAge++; }
+
+    public void onSheepDiedOldAge() { sheepDiedOldAge++; }
+    public void onSheepDiedStarvation() { sheepDiedStarvation++; }
+
+    public void onWolfDiedOldAge() { wolvesDiedOldAge++; }
+    public void onWolfDiedStarvation() { wolvesDiedStarvation++; }
+
+    // ---------- getters ----------
+    public long getInitialPlants() { return initialPlants; }
+    public long getInitialSheep()  { return initialSheep; }
+    public long getInitialWolves() { return initialWolves; }
+
+    public long getBornPlants() { return bornPlants; }
+    public long getBornSheep()  { return bornSheep; }
+    public long getBornWolves() { return bornWolves; }
+
+    public long getPlantsEatenBySheep() { return plantsEatenBySheep; }
+    public long getSheepEatenByWolves() { return sheepEatenByWolves; }
+    public long getPlantsRemovedByWolves() { return plantsRemovedByWolves; }
+
+    public long getPlantsDiedOldAge() { return plantsDiedOldAge; }
+    public long getSheepDiedOldAge()  { return sheepDiedOldAge; }
+    public long getSheepDiedStarvation() { return sheepDiedStarvation; }
+    public long getWolvesDiedOldAge() { return wolvesDiedOldAge; }
+    public long getWolvesDiedStarvation() { return wolvesDiedStarvation; }
+
+    // Totais úteis (se quiseres mostrar)
+    public long getTotalCreatedPlants() { return initialPlants + bornPlants; }
+    public long getTotalCreatedSheep()  { return initialSheep + bornSheep; }
+    public long getTotalCreatedWolves() { return initialWolves + bornWolves; }
+
+    public long getTotalDiedPlants() {
+        return plantsEatenBySheep + plantsRemovedByWolves + plantsDiedOldAge;
     }
 
-    public void onDied(Species s, long n) {
-        if (n <= 0) return;
-        switch (s) {
-            case PLANT -> diedPlants += n;
-            case SHEEP -> diedSheep += n;
-            case WOLF  -> diedWolves += n;
-        }
+    public long getTotalDiedSheep() {
+        return sheepEatenByWolves + sheepDiedOldAge + sheepDiedStarvation;
     }
 
-    public long getCreatedPlants() { return createdPlants; }
-    public long getCreatedSheep()  { return createdSheep; }
-    public long getCreatedWolves() { return createdWolves; }
-
-    public long getDiedPlants() { return diedPlants; }
-    public long getDiedSheep()  { return diedSheep; }
-    public long getDiedWolves() { return diedWolves; }
+    public long getTotalDiedWolves() {
+        return wolvesDiedOldAge + wolvesDiedStarvation;
+    }
 }

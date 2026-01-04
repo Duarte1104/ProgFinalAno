@@ -12,24 +12,26 @@ public final class ConsoleRenderer {
         System.out.println("Passo " + stepNumber);
 
         List<String> lines = world.toTextLines();
-        for (String line : lines) {
-            System.out.println(line);
-        }
+        for (String line : lines) System.out.println(line);
 
         int plants = world.countSpecies(Species.PLANT);
         int sheep  = world.countSpecies(Species.SHEEP);
         int wolves = world.countSpecies(Species.WOLF);
 
-        System.out.println("Vivos  -> Plantas(*): " + plants + " | Ovelhas(O): " + sheep + " | Lobos(W): " + wolves);
+        System.out.println("Vivos -> Plantas(*): " + plants + " | Ovelhas(O): " + sheep + " | Lobos(W): " + wolves);
 
         if (stats != null) {
-            System.out.println("Criados-> Plantas(*): " + stats.getCreatedPlants()
-                    + " | Ovelhas(O): " + stats.getCreatedSheep()
-                    + " | Lobos(W): " + stats.getCreatedWolves());
+            System.out.println("Nascidos (reprodução) -> *(+): " + stats.getBornPlants()
+                    + " | O(+): " + stats.getBornSheep()
+                    + " | W(+): " + stats.getBornWolves());
 
-            System.out.println("Mortos -> Plantas(*): " + stats.getDiedPlants()
-                    + " | Ovelhas(O): " + stats.getDiedSheep()
-                    + " | Lobos(W): " + stats.getDiedWolves());
+            System.out.println("Interações -> Plantas comidas por O: " + stats.getPlantsEatenBySheep()
+                    + " | Ovelhas comidas por W: " + stats.getSheepEatenByWolves()
+                    + " | Plantas removidas por W: " + stats.getPlantsRemovedByWolves());
+
+            System.out.println("Mortes naturais -> Plantas(idade): " + stats.getPlantsDiedOldAge()
+                    + " | Ovelhas(idade): " + stats.getSheepDiedOldAge() + ", fome: " + stats.getSheepDiedStarvation()
+                    + " | Lobos(idade): " + stats.getWolvesDiedOldAge() + ", fome: " + stats.getWolvesDiedStarvation());
         }
 
         System.out.println();

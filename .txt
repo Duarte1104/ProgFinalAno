@@ -1,0 +1,7 @@
+Remove-Item -Recurse -Force bin
+mkdir bin
+javac -d bin (Get-ChildItem -Recurse -Filter *.java -Path .\src | ForEach-Object FullName)
+
+java -cp bin sim.Main
+
+

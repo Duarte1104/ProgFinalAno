@@ -15,7 +15,7 @@ public final class SimulationEngine {
     public SimulationEngine(World world, Random rng) {
         this.world = Objects.requireNonNull(world);
         this.rng = Objects.requireNonNull(rng);
-        this.stats = new SimulationStats(world); // conta os iniciais como "criados"
+        this.stats = new SimulationStats(world);
     }
 
     public int getStepNumber() {
@@ -30,13 +30,15 @@ public final class SimulationEngine {
         stepNumber++;
 
         // 1) envelhecimento + energia (-1) + possíveis mortes (por idade/energia)
-        List<Organism> snap1 = world.getOrganismsSnapshot();
-        for (Organism o : snap1) {
+        for (Organism o : world.getOrganismsSnapshot()) {
             if (!o.isAlive()) continue;
             o.onStepStart();
         }
 
-        // 2) movimento (ovelhas e depois lobos) + alimentação
+        // Remove já os mortos naturais, para não haver interações com “cadáveres”
+        cleanupDeadNatural();
+
+        // 2) movimento + alimentação
         Map<Position, List<Sheep>> sheepMeetings = moveSheepPhase();
         Map<Position, List<Wolf>> wolfMeetings = moveWolfPhase();
 
@@ -45,8 +47,8 @@ public final class SimulationEngine {
         reproduceFromMeetingsSheep(sheepMeetings);
         reproduceFromMeetingsWolves(wolfMeetings);
 
-        // 4) limpeza dos mortos (por idade/energia, etc.)
-        cleanupDead();
+        // segurança (normalmente não há mortos aqui, mas deixamos por robustez)
+        cleanupDeadNatural();
     }
 
     // -------------------- MOVIMENTO: OVELHAS --------------------
@@ -59,7 +61,6 @@ public final class SimulationEngine {
             if (!o.isAlive()) continue;
 
             Sheep s = (Sheep) o;
-
             Position target = s.chooseMoveTarget(world, rng);
             if (target == null || !world.isInside(target)) target = s.getPosition();
 
@@ -69,21 +70,17 @@ public final class SimulationEngine {
         // encontros (2+ tentaram o mesmo destino)
         Map<Position, List<Sheep>> meetings = new HashMap<>();
         for (var entry : intents.entrySet()) {
-            if (entry.getValue().size() >= 2) {
-                meetings.put(entry.getKey(), new ArrayList<>(entry.getValue()));
-            }
+            if (entry.getValue().size() >= 2) meetings.put(entry.getKey(), new ArrayList<>(entry.getValue()));
         }
 
-        // escolher 1 vencedor por célula destino
+        // escolher 1 vencedor por célula
         Map<Position, Sheep> winners = new HashMap<>();
         for (var entry : intents.entrySet()) {
-            Position dest = entry.getKey();
             List<Sheep> contenders = entry.getValue();
-            Sheep winner = contenders.get(rng.nextInt(contenders.size()));
-            winners.put(dest, winner);
+            winners.put(entry.getKey(), contenders.get(rng.nextInt(contenders.size())));
         }
 
-        // aplicar movimentos dos vencedores
+        // aplicar movimentos
         for (var entry : winners.entrySet()) {
             Position dest = entry.getKey();
             Sheep s = entry.getValue();
@@ -97,10 +94,10 @@ public final class SimulationEngine {
             if (occupant == null) {
                 world.moveToEmpty(s, dest);
             } else if (occupant instanceof Plant) {
-                Organism removed = world.moveInto(s, dest); // remove planta
+                Organism removed = world.moveInto(s, dest); // remove planta do mundo
                 if (removed != null) {
                     removed.die();
-                    stats.onDied(Species.PLANT, 1);
+                    stats.onPlantEatenBySheep();
                 }
                 s.eatPlant();
             }
@@ -119,7 +116,6 @@ public final class SimulationEngine {
             if (!o.isAlive()) continue;
 
             Wolf w = (Wolf) o;
-
             Position target = w.chooseMoveTarget(world, rng);
             if (target == null || !world.isInside(target)) target = w.getPosition();
 
@@ -128,17 +124,13 @@ public final class SimulationEngine {
 
         Map<Position, List<Wolf>> meetings = new HashMap<>();
         for (var entry : intents.entrySet()) {
-            if (entry.getValue().size() >= 2) {
-                meetings.put(entry.getKey(), new ArrayList<>(entry.getValue()));
-            }
+            if (entry.getValue().size() >= 2) meetings.put(entry.getKey(), new ArrayList<>(entry.getValue()));
         }
 
         Map<Position, Wolf> winners = new HashMap<>();
         for (var entry : intents.entrySet()) {
-            Position dest = entry.getKey();
             List<Wolf> contenders = entry.getValue();
-            Wolf winner = contenders.get(rng.nextInt(contenders.size()));
-            winners.put(dest, winner);
+            winners.put(entry.getKey(), contenders.get(rng.nextInt(contenders.size())));
         }
 
         for (var entry : winners.entrySet()) {
@@ -155,19 +147,25 @@ public final class SimulationEngine {
                 world.moveToEmpty(w, dest);
 
             } else if (occupant instanceof Sheep) {
-                Organism removed = world.moveInto(w, dest); // remove ovelha
-                if (removed != null) {
-                    removed.die();
-                    stats.onDied(Species.SHEEP, 1);
+                // só come se a ovelha estiver viva (por segurança)
+                if (occupant.isAlive()) {
+                    Organism removed = world.moveInto(w, dest);
+                    if (removed != null) {
+                        removed.die();
+                        stats.onSheepEatenByWolf();
+                    }
+                    w.eatSheep();
+                } else {
+                    // se por algum motivo ainda existir uma ovelha morta ali, não conta como comida
+                    world.moveInto(w, dest);
                 }
-                w.eatSheep();
 
             } else if (occupant instanceof Plant) {
-                // lobo entra e a planta sai (sem energia) para manter 1 por célula
+                // lobo entra e planta desaparece (não ganha energia)
                 Organism removed = world.moveInto(w, dest);
                 if (removed != null) {
                     removed.die();
-                    stats.onDied(Species.PLANT, 1);
+                    stats.onPlantRemovedByWolf();
                 }
             }
         }
@@ -187,7 +185,7 @@ public final class SimulationEngine {
                 Position target = p.chooseReproductionTarget(world, rng);
                 if (target != null) {
                     world.place(new Plant(target), target);
-                    stats.onCreated(Species.PLANT, 1);
+                    stats.onPlantBorn();
                 }
             }
         }
@@ -210,7 +208,7 @@ public final class SimulationEngine {
                 Position babyPos = chooseRandomEmptyAdjacent(meetingCell);
                 if (babyPos != null) {
                     world.place(new Sheep(babyPos), babyPos);
-                    stats.onCreated(Species.SHEEP, 1);
+                    stats.onSheepBorn();
                 }
             }
         }
@@ -233,7 +231,7 @@ public final class SimulationEngine {
                 Position babyPos = chooseRandomEmptyAdjacent(meetingCell);
                 if (babyPos != null) {
                     world.place(new Wolf(babyPos), babyPos);
-                    stats.onCreated(Species.WOLF, 1);
+                    stats.onWolfBorn();
                 }
             }
         }
@@ -248,14 +246,37 @@ public final class SimulationEngine {
         return null;
     }
 
-    // -------------------- LIMPEZA --------------------
+    // -------------------- LIMPEZA (mortes naturais) --------------------
 
-    private void cleanupDead() {
+    private void cleanupDeadNatural() {
         for (Organism o : world.getOrganismsSnapshot()) {
-            if (o != null && !o.isAlive()) {
-                stats.onDied(o.getSpecies(), 1);
-                world.remove(o);
-            }
+            if (o == null) continue;
+            if (o.isAlive()) continue;
+
+            recordNaturalDeath(o);
+            world.remove(o);
+        }
+    }
+
+    private void recordNaturalDeath(Organism o) {
+        // causa por idade (idade > maxAge)
+        boolean diedByAge = o.getAge() > o.getMaxAge();
+
+        if (o instanceof Plant) {
+            // planta só morre naturalmente por idade (no nosso modelo)
+            stats.onPlantDiedOldAge();
+            return;
+        }
+
+        if (o instanceof Sheep) {
+            if (diedByAge) stats.onSheepDiedOldAge();
+            else stats.onSheepDiedStarvation(); // energia <= 0
+            return;
+        }
+
+        if (o instanceof Wolf) {
+            if (diedByAge) stats.onWolfDiedOldAge();
+            else stats.onWolfDiedStarvation();
         }
     }
 
